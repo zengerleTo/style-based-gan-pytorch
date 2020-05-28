@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
 
 from dataset import MultiResolutionDataset
-from model import StyledGenerator, Discriminator, Encoder
+from model import StyledGenerator, Discriminator, PortraitEncoder
 
 
 def requires_grad(model, flag=True):
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    encoder = nn.DataParallel(Encoder(size=128, filters=64, filters_max=512, num_layers=1)).cuda()
+    encoder = nn.DataParallel(PortraitEncoder(size=128, filters=64, filters_max=512, num_layers=1)).cuda()
     generator = nn.DataParallel(StyledGenerator(code_size)).cuda()
     discriminator = nn.DataParallel(
         Discriminator(from_rgb_activate=not args.no_from_rgb_activate)
