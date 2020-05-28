@@ -284,7 +284,7 @@ if __name__ == '__main__':
     )
     e_optimizer.add_param_group(
         {
-            'params': encoder.module.style.parameters(),
+            'params': encoder.module.parameters(),
             'lr': args.lr * 0.01,
             'mult': 0.01,
         }
