@@ -578,7 +578,7 @@ class Discriminator(nn.Module):
         return out
 
 class ResidualBlock(nn.Module):
-    def _init__(self, input_filters, output_filters):
+    def __init__(self, input_filters, output_filters):
         self.input_filters, self.output_filters = input_filters, output_filters
         hidden = min(input_filters, output_filters)
         
