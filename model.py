@@ -7,6 +7,7 @@ from torch.autograd import Function
 
 from math import sqrt
 
+import numpy as np
 import random
 
 
@@ -575,3 +576,71 @@ class Discriminator(nn.Module):
         out = self.linear(out)
 
         return out
+
+class ResidualBlock(nn.Module):
+    def _init__(self, input_filters, output_filters):
+        self.input_filters, self.output_filters = input_filters, output_filters
+        hidden = min(input_filters, output_filters)
+        
+        self.conv0 = nn.Conv2d(in_channels=input_filters, out_channels=hidden, kernel_size=3, padding=1)
+        self.bn0 = nn.BatchNorm2d(num_features=hidden, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        self.relu0 = nn.LeakyReLU(0.2)
+        
+        self.conv1 = nn.Conv2d(in_channels=hidden, out_channels=output_filters, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(num_features=output_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        self.relu1 = nn.LeakyReLU(0.2)
+        
+        self.shortcut = nn.Sequential(
+            nn.Conv2d(input_filters, output_filters, kernel_size=1, stride=0, bias=False),
+            nn.BatchNorm2d(num_features=input_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.LeakyReLU(0.2)) if (input_filters != output_filters) else None
+    
+    def forward(self, input):
+        residual = input
+        if (self.input_filters != self.output_filters): residual = self.shortcut(residual)
+        
+        out = self.conv0(input)
+        out = self.bn0(out)
+        out = self.relu0(out)
+        
+        out = self.conv1(input)
+        out = self.bn1(out)
+        out=self.relu1(out)
+        
+        return out + residual
+    
+class PortraitEncoder(nn.Module):
+    def __init__(self, size=128, filters=64, filters_max=512, num_layers=1):
+        super().__init__()
+        s0 = 4
+        num_blocks = int(np.log2(size / s0))
+        
+        self.conv0 = nn.Conv2d(in_channels=3, out_channels=filters, kernel_size=3, padding=1)
+        self.bn0 = nn.BatchNorm2d(num_features=filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        self.relu0 = nn.LeakyReLU(0.2)
+        
+        blocks = [num_blocks]
+        for i in range(num_blocks):
+            nf1 = min(filters * 2 ** i, filters_max)
+            nf2 = min(filters * 2 ** (i + 1), filters_max)
+            blocks.append(nn.ModuleList(
+                [
+                    nn.AvgPool2d(kernel_size=2),
+                    ResidualBlock(nf1, nf2)
+                ]
+            ))
+
+        self.enc_blocks = nn.Sequential(*blocks)
+        
+        self.dense = nn.Linear(512*4, 512*num_layers)
+        self.bn_out = nn.BatchNorm1d(num_features=512*num_layers, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    
+    def forward(self, input):#
+        out = self.conv0(input)
+        out = self.bn0(out)
+        out=self.relu0(out)
+        out=self.enc_blocks(out)
+        out=self.dense(out)
+        latent_w = self.bn_out(out)
+        return latent_w
+    
