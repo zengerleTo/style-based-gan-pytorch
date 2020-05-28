@@ -620,7 +620,7 @@ class PortraitEncoder(nn.Module):
         self.bn0 = nn.BatchNorm2d(num_features=filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
         self.relu0 = nn.LeakyReLU(0.2)
         
-        blocks = [num_blocks]
+        blocks = []
         for i in range(num_blocks):
             nf1 = min(filters * 2 ** i, filters_max)
             nf2 = min(filters * 2 ** (i + 1), filters_max)
