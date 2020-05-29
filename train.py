@@ -292,9 +292,9 @@ if __name__ == '__main__':
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
     if args.gen_path != '':
-        generator.load_state_dict(torch.load(args.gen_path))
+        generator.module.load_state_dict(torch.load(args.gen_path))
     if args.discr_path != '':
-        discriminator.load_state_dict(torch.load(args.discr_path['discriminator']))
+        discriminator.module.load_state_dict(torch.load(args.discr_path['discriminator']))
 
     if args.ckpt is not None:
         ckpt = torch.load(args.ckpt)
