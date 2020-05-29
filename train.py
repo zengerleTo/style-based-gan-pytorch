@@ -282,13 +282,13 @@ if __name__ == '__main__':
     e_optimizer = optim.Adam(
         encoder.module.parameters(), lr=args.lr, betas=(0.0, 0.99)
     )
-    e_optimizer.add_param_group(
-        {
-            'params': encoder.module.parameters(),
-            'lr': args.lr * 0.01,
-            'mult': 0.01,
-        }
-    )
+#    e_optimizer.add_param_group(
+#        {
+#            'params': encoder.module.parameters(),
+#            'lr': args.lr * 0.01,
+#            'mult': 0.01,
+#        }
+#    )
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
     if args.gen_path != '':
