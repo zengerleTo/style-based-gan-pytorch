@@ -592,8 +592,8 @@ class ResidualBlock(nn.Module):
         self.relu1 = nn.LeakyReLU(0.2)
         
         self.shortcut = nn.Sequential(
-            nn.Conv2d(input_filters, output_filters, kernel_size=1, stride=0, bias=False),
-            nn.BatchNorm2d(num_features=input_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(input_filters, output_filters, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm2d(num_features=output_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
             nn.LeakyReLU(0.2)) if (input_filters != output_filters) else None
     
     def forward(self, input):
@@ -609,7 +609,12 @@ class ResidualBlock(nn.Module):
         out=self.relu1(out)
         
         return out + residual
-    
+
+class Flatten(torch.nn.Module):
+    def forward(self, x):
+        batch_size = x.shape[0]
+        return x.view(batch_size, -1)
+
 class PortraitEncoder(nn.Module):
     def __init__(self, size=128, filters=64, filters_max=512, num_layers=1):
         super().__init__()
@@ -624,23 +629,25 @@ class PortraitEncoder(nn.Module):
         for i in range(num_blocks):
             nf1 = min(filters * 2 ** i, filters_max)
             nf2 = min(filters * 2 ** (i + 1), filters_max)
-            blocks.append(nn.ModuleList(
-                [
-                    nn.AvgPool2d(kernel_size=2),
-                    ResidualBlock(nf1, nf2)
-                ]
-            ))
+            blocks.append(nn.AvgPool2d(kernel_size=2))
+            blocks.append(ResidualBlock(nf1, nf2))
 
         self.enc_blocks = nn.Sequential(*blocks)
-        
-        self.dense = nn.Linear(512*4, 512*num_layers)
+        self.flatten = Flatten()
+        self.dense = nn.Linear(512*4*4, 512*num_layers)
         self.bn_out = nn.BatchNorm1d(num_features=512*num_layers, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
     
     def forward(self, input):#
+        print(input.shape)
         out = self.conv0(input)
         out = self.bn0(out)
         out=self.relu0(out)
+        print(out.shape)
+        np.reshape(out, [out.shape[0], -1])
         out=self.enc_blocks(out)
+        print(out.shape)
+        out=self.flatten(out)
+        print(out.shape)
         out=self.dense(out)
         latent_w = self.bn_out(out)
         return latent_w
