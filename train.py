@@ -54,7 +54,7 @@ def train(args, dataset, encoder, generator, discriminator):
     adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(560_000))
+    pbar = tqdm(range(2187*20))
 
     requires_grad(encoder, True)
     requires_grad(generator, False)
@@ -69,7 +69,7 @@ def train(args, dataset, encoder, generator, discriminator):
     epoch = 0
 
     for i in pbar:
-        if used_sample > args.phase:
+        if used_sample > 70000:#args.phase:
             used_sample = 0
             epoch += 1
 
@@ -86,7 +86,7 @@ def train(args, dataset, encoder, generator, discriminator):
                     'e_optimizer': e_optimizer.state_dict(),
                     'd_optimizer': d_optimizer.state_dict(),
                 },
-                f'checkpoint/epoch-{epoch}.model',
+                f'{args.ckpt_path}/epoch-{epoch}.model',
             )
 
             adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
@@ -193,7 +193,7 @@ def train(args, dataset, encoder, generator, discriminator):
             loss = F.softplus(-predict).mean()
         
         mse = nn.MSELoss()
-        loss += mse(real_image, embedded_image)
+        loss = mse(real_image, embedded_image)
 
         if i%10 == 0:
             enc_loss_val = loss.item()
@@ -207,19 +207,16 @@ def train(args, dataset, encoder, generator, discriminator):
         if (i + 1) % 100 == 0:
             images = []
 
-            gen_i=1#, gen_j = args.gen_sample.get(resolution, (10, 5))
+            gen_i=8#, gen_j = args.gen_sample.get(resolution, (10, 5))
             print("real_image shape")
-            print(real_image.shape)
+            print(real_image[0].shape)
             with torch.no_grad():
-                for _ in range(gen_i):
-                    images.append(
-                        vis = np.concatenate((generator(
-                            encoder(real_image), step=step, alpha=alpha
-                        ).data.cpu(), real_image.data.cpu()), axis=1)
-                    )
+                for k in range(gen_i):
+                    images.append(real_image[k].data.cpu())
+                    images.append(embedded_image[k].data.cpu())
 
             utils.save_image(
-                torch.cat(images, 0),
+                torch.cat(images, 1),
                 f'sample/{str(i + 1).zfill(6)}.png',
                 nrow=gen_i,
                 normalize=True,
@@ -270,6 +267,7 @@ if __name__ == '__main__':
         choices=['wgan-gp', 'r1'],
         help='class of gan loss',
     )
+    parser.add_argument('--ckpt_path', default='checkpoint',type=str, help='path where the checkpoints will be stored')
     parser.add_argument('--gen_path', default='', type=str, help='path of the pretrained generator')
     parser.add_argument('--discr_path', default='',type=str, help='path of the pretrained generator')
 
