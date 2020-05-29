@@ -28,6 +28,11 @@ def prepare(transaction, dataset, n_worker, size=128):
     with multiprocessing.Pool(n_worker) as pool:
         for i, img in tqdm(pool.imap_unordered(resize_fn, files)):
             #for img in imgs:
+            img = trans_fn.resize(img, size, Image.LANCZOS)
+            img = trans_fn.center_crop(img, size)
+            buffer = BytesIO()
+            img.save(buffer, format='jpeg', quality=100)
+            img = buffer.getvalue()
             key = f'{size}-{str(i).zfill(5)}'.encode('utf-8')
             transaction.put(key, img)
 
