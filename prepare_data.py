@@ -31,7 +31,7 @@ def prepare(transaction, dataset, n_worker, size=128):
             img = trans_fn.resize(img, size, Image.LANCZOS)
             img = trans_fn.center_crop(img, size)
             buffer = BytesIO()
-            img.save(buffer, format='jpeg', quality=100)
+            img.save(buffer, format='png', quality=100)
             img = buffer.getvalue()
             key = f'{size}-{str(i).zfill(5)}'.encode('utf-8')
             transaction.put(key, img)
@@ -52,6 +52,6 @@ if __name__ == '__main__':
 
     imgset = datasets.ImageFolder(args.path)
 
-    with lmdb.open(args.out, map_size=args.resolution, readahead=False) as env:
+    with lmdb.open(args.out, map_size=1024**4, readahead=False) as env:
         with env.begin(write=True) as txn:
             prepare(txn, imgset, args.n_worker, args.resolution)
