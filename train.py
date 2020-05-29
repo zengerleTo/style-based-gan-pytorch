@@ -294,7 +294,7 @@ if __name__ == '__main__':
     if args.gen_path != '':
         generator.module.load_state_dict(torch.load(args.gen_path))
     if args.discr_path != '':
-        discriminator.module.load_state_dict(torch.load(args.discr_path['discriminator']))
+        discriminator.module.load_state_dict(torch.load(args.discr_path)['discriminator'])
 
     if args.ckpt is not None:
         ckpt = torch.load(args.ckpt)
