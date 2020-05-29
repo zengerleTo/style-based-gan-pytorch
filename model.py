@@ -642,13 +642,8 @@ class PortraitEncoder(nn.Module):
         out = self.conv0(input)
         out = self.bn0(out)
         out=self.relu0(out)
-        print(out.shape)
-        np.reshape(out, [out.shape[0], -1])
         out=self.enc_blocks(out)
-        print(out.shape)
         out=self.flatten(out)
-        print(out.shape)
         out=self.dense(out)
         latent_w = self.bn_out(out)
         return latent_w
-    

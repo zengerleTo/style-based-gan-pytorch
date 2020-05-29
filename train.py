@@ -191,8 +191,9 @@ def train(args, dataset, encoder, generator, discriminator):
 
         elif args.loss == 'r1':
             loss = F.softplus(-predict).mean()
-            
-        loss += nn.MSELoss(real_image, embedded_image)
+        
+        mse = nn.MSELoss()
+        loss += mse(real_image, embedded_image)
 
         if i%10 == 0:
             enc_loss_val = loss.item()
@@ -206,14 +207,15 @@ def train(args, dataset, encoder, generator, discriminator):
         if (i + 1) % 100 == 0:
             images = []
 
-            gen_i, gen_j = args.gen_sample.get(resolution, (10, 5))
-
+            gen_i=1#, gen_j = args.gen_sample.get(resolution, (10, 5))
+            print("real_image shape")
+            print(real_image.shape)
             with torch.no_grad():
                 for _ in range(gen_i):
                     images.append(
-                        generator(
+                        vis = np.concatenate((generator(
                             encoder(real_image), step=step, alpha=alpha
-                        ).data.cpu()
+                        ).data.cpu(), real_image.data.cpu()), axis=1)
                     )
 
             utils.save_image(
@@ -225,7 +227,7 @@ def train(args, dataset, encoder, generator, discriminator):
             )
 
         state_msg = (
-            f'Size: {4 * 2 ** step}; G: {enc_loss_val:.3f}; D: {disc_loss_val:.3f};'
+            f'Size: {4 * 2 ** step}; E: {enc_loss_val:.3f}; D: {disc_loss_val:.3f};'
             f' Grad: {grad_loss_val:.3f}; Alpha: {alpha:.5f}'
         )
 
@@ -243,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--phase',
         type=int,
-        default=56_000,
+        default=1_750,
         help='number of samples used for each training phases',
     )
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
@@ -322,7 +324,7 @@ if __name__ == '__main__':
         args.lr = {}
         args.batch = {}
 
-    args.gen_sample = {512: (8, 4), 1024: (4, 2)}
+    args.gen_sample = {128: (16, 4) ,512: (8, 4), 1024: (4, 2)}
 
     args.batch_default = 32
 
