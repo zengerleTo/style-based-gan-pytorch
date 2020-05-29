@@ -26,10 +26,10 @@ def prepare(transaction, dataset, n_worker, size=128):
     total = 0
 
     with multiprocessing.Pool(n_worker) as pool:
-        for i, imgs in tqdm(pool.imap_unordered(resize_fn, files)):
-            for img in imgs:
-                key = f'{size}-{str(i).zfill(5)}'.encode('utf-8')
-                transaction.put(key, img)
+        for i, img in tqdm(pool.imap_unordered(resize_fn, files)):
+            #for img in imgs:
+            key = f'{size}-{str(i).zfill(5)}'.encode('utf-8')
+            transaction.put(key, img)
 
             total += 1
 
