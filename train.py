@@ -80,7 +80,7 @@ def train(args, dataset, encoder, generator, discriminator):
 
             torch.save(
                 {
-                    'encoder': encoder.state_dict(),
+                    'encoder': encoder.module.state_dict(),
                     'generator': generator.module.state_dict(),
                     'discriminator': discriminator.module.state_dict(),
                     'e_optimizer': e_optimizer.state_dict(),
@@ -280,7 +280,7 @@ if __name__ == '__main__':
     ).cuda()
 
     e_optimizer = optim.Adam(
-        generator.module.generator.parameters(), lr=args.lr, betas=(0.0, 0.99)
+        encoder.module.parameters(), lr=args.lr, betas=(0.0, 0.99)
     )
     e_optimizer.add_param_group(
         {
@@ -292,14 +292,14 @@ if __name__ == '__main__':
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
     if args.gen_path != '':
-        generator.module.load_state_dict(args.gen_path)
+        generator.load_state_dict(torch.load(args.gen_path))
     if args.discr_path != '':
-        generator.module.load_state_dict(args.discr_path['discriminator'])
+        discriminator.load_state_dict(torch.load(args.discr_path['discriminator']))
 
     if args.ckpt is not None:
         ckpt = torch.load(args.ckpt)
 
-        encoder.load_state_dict(ckpt['encoder'])
+        encoder.module.load_state_dict(ckpt['encoder'])
         discriminator.module.load_state_dict(ckpt['discriminator'])
         e_optimizer.load_state_dict(ckpt['e_optimizer'])
         d_optimizer.load_state_dict(ckpt['d_optimizer'])
