@@ -10,36 +10,16 @@ from torchvision import datasets
 from torchvision.transforms import functional as trans_fn
 
 
-def resize_and_convert(img, size, quality=100):
-    img = trans_fn.resize(img, size, Image.LANCZOS)
-    img = trans_fn.center_crop(img, size)
-    buffer = BytesIO()
-    img.save(buffer, format='jpeg', quality=quality)
-    val = buffer.getvalue()
-
-    return val
-
-
-def resize_multiple(img, sizes=(8, 16, 32, 64, 128, 256, 512, 1024), quality=100):
-    imgs = []
-
-    for size in sizes:
-        imgs.append(resize_and_convert(img, size, quality))
-
-    return imgs
-
-
-def resize_worker(img_file, sizes):
+def resize_worker(img_file):
     i, file = img_file
     img = Image.open(file)
     img = img.convert('RGB')
-    out = resize_multiple(img, sizes=sizes)
 
-    return i, out
+    return i, img
 
 
-def prepare(transaction, dataset, n_worker, sizes=(8, 16, 32, 64, 128, 256, 512, 1024)):
-    resize_fn = partial(resize_worker, sizes=sizes)
+def prepare(transaction, dataset, n_worker, size=128):
+    resize_fn = partial(resize_worker)
 
     files = sorted(dataset.imgs, key=lambda x: x[0])
     files = [(i, file) for i, (file, label) in enumerate(files)]
@@ -47,7 +27,7 @@ def prepare(transaction, dataset, n_worker, sizes=(8, 16, 32, 64, 128, 256, 512,
 
     with multiprocessing.Pool(n_worker) as pool:
         for i, imgs in tqdm(pool.imap_unordered(resize_fn, files)):
-            for size, img in zip(sizes, imgs):
+            for img in imgs:
                 key = f'{size}-{str(i).zfill(5)}'.encode('utf-8')
                 transaction.put(key, img)
 
@@ -61,11 +41,12 @@ if __name__ == '__main__':
     parser.add_argument('--out', type=str)
     parser.add_argument('--n_worker', type=int, default=8)
     parser.add_argument('path', type=str)
+    parser.add_argument('--resolution', type=int, default=128)
 
     args = parser.parse_args()
 
     imgset = datasets.ImageFolder(args.path)
 
-    with lmdb.open(args.out, map_size=1024 ** 4, readahead=False) as env:
+    with lmdb.open(args.out, map_size=args.resolution, readahead=False) as env:
         with env.begin(write=True) as txn:
-            prepare(txn, imgset, args.n_worker)
+            prepare(txn, imgset, args.n_worker, args.resolution)
