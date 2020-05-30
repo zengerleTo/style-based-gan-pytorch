@@ -46,7 +46,7 @@ def adjust_lr(optimizer, lr):
 
 
 def train(args, dataset, encoder, generator, discriminator):
-    step=5
+    step=5     
     resolution = 128
     loader = sample_data(
         dataset, args.batch.get(resolution, args.batch_default), resolution
@@ -56,10 +56,10 @@ def train(args, dataset, encoder, generator, discriminator):
     adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(2187*25))
+    pbar = tqdm(range(args.phase*30))
 
-    requires_grad(encoder, True)
     requires_grad(generator, False)
+    requires_grad(encoder, False)
     requires_grad(discriminator, True)
 
     disc_loss_val = 0
@@ -68,19 +68,16 @@ def train(args, dataset, encoder, generator, discriminator):
 
     alpha = 1
     used_sample = 0
-    epoch = 0
     
+    epoch = 0
     writer = SummaryWriter()
 
     for i in pbar:
-        if used_sample > 70000:#args.phase:
+        discriminator.zero_grad()
+
+        if used_sample > args.phase * 2:
             used_sample = 0
             epoch += 1
-
-            loader = sample_data(
-                dataset, args.batch.get(resolution, args.batch_default), resolution
-            )
-            data_loader = iter(loader)
 
             torch.save(
                 {
@@ -88,14 +85,14 @@ def train(args, dataset, encoder, generator, discriminator):
                     'generator': generator.module.state_dict(),
                     'discriminator': discriminator.module.state_dict(),
                     'e_optimizer': e_optimizer.state_dict(),
-                    'd_optimizer': d_optimizer.state_dict(),
+                    'd_optimizer': d_optimizer.state_dict()
                 },
-                f'{args.ckpt_path}/epoch-{epoch}.model',
+                f'checkpoint/epoch-{epoch}.model',
             )
 
             adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
             adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
-            
+
         try:
             real_image = next(data_loader)
 
@@ -108,106 +105,90 @@ def train(args, dataset, encoder, generator, discriminator):
         b_size = real_image.size(0)
         real_image = real_image.cuda()
 
-        #discriminator training
-#        discriminator.zero_grad()
-#
-#        if args.loss == 'wgan-gp':
-#            real_predict = discriminator(real_image, step=step, alpha=alpha)
-#            real_predict = real_predict.mean() - 0.001 * (real_predict ** 2).mean()
-#            (-real_predict).backward()
-#
-#        elif args.loss == 'r1':
-#            real_image.requires_grad = True
-#            real_scores = discriminator(real_image, step=step, alpha=alpha)
-#            real_predict = F.softplus(-real_scores).mean()
-#            real_predict.backward(retain_graph=True)
-#
-#            grad_real = grad(
-#                outputs=real_scores.sum(), inputs=real_image, create_graph=True
-#            )[0]
-#            grad_penalty = (
-#                grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
-#            ).mean()
-#            grad_penalty = 10 / 2 * grad_penalty
-#            grad_penalty.backward()
-#            if i%10 == 0:
-#                grad_loss_val = grad_penalty.item()
-#
-#        if args.mixing and random.random() < 0.9:
-#            gen_in11, gen_in12, gen_in21, gen_in22 = torch.randn(
-#                4, b_size, code_size, device='cuda'
-#            ).chunk(4, 0)
-#            gen_in1 = [gen_in11.squeeze(0), gen_in12.squeeze(0)]
-#            gen_in2 = [gen_in21.squeeze(0), gen_in22.squeeze(0)]
-#
-#        else:
-#            gen_in1, gen_in2 = torch.randn(2, b_size, code_size, device='cuda').chunk(
-#                2, 0
-#            )
-#            gen_in1 = gen_in1.squeeze(0)
-#            gen_in2 = gen_in2.squeeze(0)
-#
-#        fake_image = generator(gen_in1, step=step, alpha=alpha)
-#        fake_predict = discriminator(fake_image, step=step, alpha=alpha)
-#
-#        if args.loss == 'wgan-gp':
-#            fake_predict = fake_predict.mean()
-#            fake_predict.backward()
-#
-#            eps = torch.rand(b_size, 1, 1, 1).cuda()
-#            x_hat = eps * real_image.data + (1 - eps) * fake_image.data
-#            x_hat.requires_grad = True
-#            hat_predict = discriminator(x_hat, step=step, alpha=alpha)
-#            grad_x_hat = grad(
-#                outputs=hat_predict.sum(), inputs=x_hat, create_graph=True
-#            )[0]
-#            grad_penalty = (
-#                (grad_x_hat.view(grad_x_hat.size(0), -1).norm(2, dim=1) - 1) ** 2
-#            ).mean()
-#            grad_penalty = 10 * grad_penalty
-#            grad_penalty.backward()
-#            if i%10 == 0:
-#                grad_loss_val = grad_penalty.item()
-#                disc_loss_val = (-real_predict + fake_predict).item()
-#
-#        elif args.loss == 'r1':
-#            fake_predict = F.softplus(fake_predict).mean()
-#            fake_predict.backward()
-#            if i%10 == 0:
-#                disc_loss_val = (real_predict + fake_predict).item()
-#
-#        d_optimizer.step()
-
-        #Encoder training
-        encoder.zero_grad()
-
-        requires_grad(encoder, True)
-        requires_grad(discriminator, False)
-
-        latent_w = encoder(real_image)
-        
-        embedded_image = generator(latent_w, step=step, alpha=alpha)
-
-        predict = discriminator(embedded_image, step=step, alpha=alpha)
-
         if args.loss == 'wgan-gp':
-            loss = -predict.mean()
+            real_predict = discriminator(real_image, step=step, alpha=alpha)
+            real_predict = real_predict.mean() - 0.001 * (real_predict ** 2).mean()
+            (-real_predict).backward()
 
         elif args.loss == 'r1':
-            loss = F.softplus(-predict).mean()
-        
-        mse = nn.MSELoss()
-        loss += mse(real_image, embedded_image)
+            real_image.requires_grad = True
+            real_scores = discriminator(real_image, step=step, alpha=alpha)
+            real_predict = F.softplus(-real_scores).mean()
+            real_predict.backward(retain_graph=True)
 
-        if i%10 == 0:
-            enc_loss_val = loss.item()
-            writer.add_scalar('Loss/encoder', loss)
+            grad_real = grad(
+                outputs=real_scores.sum(), inputs=real_image, create_graph=True
+            )[0]
+            grad_penalty = (
+                grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
+            ).mean()
+            grad_penalty = 10 / 2 * grad_penalty
+            grad_penalty.backward()
+            if i%10 == 0:
+                grad_loss_val = grad_penalty.item()
 
-        loss.backward()
-        e_optimizer.step()
+        fake_image = generator(encoder(real_image), step=step, alpha=alpha)
+        fake_predict = discriminator(fake_image, step=step, alpha=alpha)
 
-        requires_grad(encoder, False)
-        requires_grad(discriminator, True)
+        if args.loss == 'wgan-gp':
+            fake_predict = fake_predict.mean()
+            fake_predict.backward()
+
+            eps = torch.rand(b_size, 1, 1, 1).cuda()
+            x_hat = eps * real_image.data + (1 - eps) * fake_image.data
+            x_hat.requires_grad = True
+            hat_predict = discriminator(x_hat, step=step, alpha=alpha)
+            grad_x_hat = grad(
+                outputs=hat_predict.sum(), inputs=x_hat, create_graph=True
+            )[0]
+            grad_penalty = (
+                (grad_x_hat.view(grad_x_hat.size(0), -1).norm(2, dim=1) - 1) ** 2
+            ).mean()
+            grad_penalty = 10 * grad_penalty
+            grad_penalty.backward()
+            if i%10 == 0:
+                grad_loss_val = grad_penalty.item()
+                disc_loss_val = (-real_predict + fake_predict).item()
+
+        elif args.loss == 'r1':
+            fake_predict = F.softplus(fake_predict).mean()
+            fake_predict.backward()
+            if i%10 == 0:
+                disc_loss_val = (real_predict + fake_predict).item()
+                writer.add_scalar('Loss/discriminator', real_predict + fake_predict)
+
+        d_optimizer.step()
+
+        if (i + 1) % n_critic == 0:
+            encoder.zero_grad()
+
+            requires_grad(encoder, True)
+            requires_grad(discriminator, False)
+    
+            latent_w = encoder(real_image)
+            
+            embedded_image = generator(latent_w, step=step, alpha=alpha)
+    
+            predict = discriminator(embedded_image, step=step, alpha=alpha)
+    
+            if args.loss == 'wgan-gp':
+                loss = -predict.mean()
+    
+            elif args.loss == 'r1':
+                loss = F.softplus(-predict).mean()
+            
+            mse = nn.MSELoss()
+            loss += mse(real_image, embedded_image)
+    
+            if i%10 == 0:
+                enc_loss_val = loss.item()
+                writer.add_scalar('Loss/encoder', loss)
+    
+            loss.backward()
+            e_optimizer.step()
+    
+            requires_grad(encoder, False)
+            requires_grad(discriminator, True)
 
         if (i + 1) % 100 == 0:
             images = []
@@ -232,7 +213,6 @@ def train(args, dataset, encoder, generator, discriminator):
         )
 
         pbar.set_description(state_msg)
-        
     torch.save(
                 {
                     'encoder': encoder.module.state_dict(),
