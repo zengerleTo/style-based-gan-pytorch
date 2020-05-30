@@ -56,7 +56,7 @@ def train(args, dataset, encoder, generator, discriminator):
     adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(2187*20))
+    pbar = tqdm(range(2187*25))
 
     requires_grad(encoder, True)
     requires_grad(generator, False)
@@ -232,7 +232,17 @@ def train(args, dataset, encoder, generator, discriminator):
         )
 
         pbar.set_description(state_msg)
-
+        
+    torch.save(
+                {
+                    'encoder': encoder.module.state_dict(),
+                    'generator': generator.module.state_dict(),
+                    'discriminator': discriminator.module.state_dict(),
+                    'e_optimizer': e_optimizer.state_dict(),
+                    'd_optimizer': d_optimizer.state_dict(),
+                },
+                f'{args.ckpt_path}/final.model',
+            )
 
 if __name__ == '__main__':
     code_size = 512
