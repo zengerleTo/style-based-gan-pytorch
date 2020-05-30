@@ -572,7 +572,6 @@ class Discriminator(nn.Module):
                     out = (1 - alpha) * skip_rgb + alpha * out
 
         out = out.squeeze(2).squeeze(2)
-        # print(input.size(), out.size(), step)
         out = self.linear(out)
 
         return out
@@ -638,7 +637,6 @@ class PortraitEncoder(nn.Module):
         self.bn_out = nn.BatchNorm1d(num_features=512*num_layers, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
     
     def forward(self, input):#
-        print(input.shape)
         out = self.conv0(input)
         out = self.bn0(out)
         out=self.relu0(out)

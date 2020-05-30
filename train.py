@@ -16,6 +16,8 @@ from torchvision import datasets, transforms, utils
 from dataset import MultiResolutionDataset
 from model import StyledGenerator, Discriminator, PortraitEncoder
 
+from torch.utils.tensorboard import SummaryWriter
+
 
 def requires_grad(model, flag=True):
     for p in model.parameters():
@@ -67,6 +69,8 @@ def train(args, dataset, encoder, generator, discriminator):
     alpha = 1
     used_sample = 0
     epoch = 0
+    
+    writer = SummaryWriter()
 
     for i in pbar:
         if used_sample > 70000:#args.phase:
@@ -193,10 +197,11 @@ def train(args, dataset, encoder, generator, discriminator):
             loss = F.softplus(-predict).mean()
         
         mse = nn.MSELoss()
-        loss = mse(real_image, embedded_image)
+        loss += mse(real_image, embedded_image)
 
         if i%10 == 0:
             enc_loss_val = loss.item()
+            writer.add_scalar('Loss/encoder', loss)
 
         loss.backward()
         e_optimizer.step()
@@ -208,8 +213,6 @@ def train(args, dataset, encoder, generator, discriminator):
             images = []
 
             gen_i=8#, gen_j = args.gen_sample.get(resolution, (10, 5))
-            print("real_image shape")
-            print(real_image[0].shape)
             with torch.no_grad():
                 for k in range(gen_i):
                     images.append(real_image[k].data.cpu())
