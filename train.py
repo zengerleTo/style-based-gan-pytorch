@@ -41,7 +41,7 @@ def sample_data(dataset, batch_size, image_size=4):
 
 def adjust_lr(optimizer, lr):
     for group in optimizer.param_groups:
-        mult = group.get('mult', 1)
+        mult = 0.8#group.get('mult', 1)
         group['lr'] = lr * mult
 
 
@@ -278,13 +278,13 @@ if __name__ == '__main__':
         encoder.module.parameters(), lr=args.lr, betas=(0.0, 0.99)
     )
     
-    e_optimizer.add_param_group(
-        {
-            'params': encoder.module.parameters(),
-            'lr': args.lr * 0.8,
-            'mult': 0.8,
-        }
-    )
+#    e_optimizer.add_param_group(
+#        {
+#            'params': encoder.module.parameters(),
+#            'lr': args.lr * 0.8,
+#            'mult': 0.8,
+#        }
+#    )
     
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
