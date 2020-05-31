@@ -87,7 +87,7 @@ def train(args, dataset, encoder, generator, discriminator):
                     'e_optimizer': e_optimizer.state_dict(),
                     'd_optimizer': d_optimizer.state_dict()
                 },
-                f'checkpoint/epoch-{epoch}.model',
+                f'{args.ckpt_path}/epoch-{epoch}.model',
             )
 
             adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
