@@ -70,12 +70,12 @@ def train(args, dataset, encoder, generator, discriminator):
     used_sample = 0
     
     epoch = 0
-    writer = SummaryWriter()
+    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/full_training_tunedhp/first_run')
 
     for i in pbar:
         discriminator.zero_grad()
 
-        if used_sample > args.phase * 2:
+        if used_sample > args.phase*args.batch.get(resolution, args.batch_default):
             used_sample = 0
             epoch += 1
 
@@ -172,13 +172,15 @@ def train(args, dataset, encoder, generator, discriminator):
             predict = discriminator(embedded_image, step=step, alpha=alpha)
     
             if args.loss == 'wgan-gp':
-                loss = -predict.mean()
+                adv_loss = -predict.mean()
     
             elif args.loss == 'r1':
-                loss = F.softplus(-predict).mean()
+                adv_loss = F.softplus(-predict).mean()
             
             mse = nn.MSELoss()
-            loss += mse(real_image, embedded_image)
+            pixel_rec_loss = mse(real_image, embedded_image)
+            
+            loss = 0.05*adv_loss + pixel_rec_loss
     
             if i%10 == 0:
                 enc_loss_val = loss.item()
@@ -275,13 +277,15 @@ if __name__ == '__main__':
     e_optimizer = optim.Adam(
         encoder.module.parameters(), lr=args.lr, betas=(0.0, 0.99)
     )
-#    e_optimizer.add_param_group(
-#        {
-#            'params': encoder.module.parameters(),
-#            'lr': args.lr * 0.01,
-#            'mult': 0.01,
-#        }
-#    )
+    
+    e_optimizer.add_param_group(
+        {
+            'params': encoder.module.parameters(),
+            'lr': args.lr * 0.8,
+            'mult': 0.8,
+        }
+    )
+    
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
     if args.gen_path != '':
@@ -308,7 +312,7 @@ if __name__ == '__main__':
     dataset = MultiResolutionDataset(args.path, transform)
 
     if args.sched:
-        args.lr = {128: 0.0015, 256: 0.002, 512: 0.003, 1024: 0.003}
+        args.lr = {128: 0.0001, 256: 0.002, 512: 0.003, 1024: 0.003}
         args.batch = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 32, 256: 32}
 
     else:
