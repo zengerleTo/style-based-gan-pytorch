@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
+import torchvision
 
 from dataset import MultiResolutionDataset
 from model import StyledGenerator, Discriminator, PortraitEncoder
@@ -58,9 +59,12 @@ def train(args, dataset, encoder, generator, discriminator):
 
     pbar = tqdm(range(args.phase*30))
 
+    perceptual_model = torchvision.models.vgg16(pretrained=True)
+
     requires_grad(generator, False)
     requires_grad(encoder, False)
     requires_grad(discriminator, True)
+    requires_grad(perceptual_model, False)
 
     disc_loss_val = 0
     enc_loss_val = 0
@@ -70,7 +74,7 @@ def train(args, dataset, encoder, generator, discriminator):
     used_sample = 0
     
     epoch = 0
-    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/full_training_tunedhp/first_run')
+    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/perceptual/first run')
 
     for i in pbar:
         discriminator.zero_grad()
@@ -179,8 +183,9 @@ def train(args, dataset, encoder, generator, discriminator):
             
             mse = nn.MSELoss()
             pixel_rec_loss = mse(real_image, embedded_image)
+            feature_rec_loss = mse(perceptual_model(real_image), perceptual_model(embedded_image))
             
-            loss = 0.05*adv_loss + pixel_rec_loss
+            loss = pixel_rec_loss + 0.00005*feature_rec_loss + 0.05*adv_loss
     
             if i%10 == 0:
                 enc_loss_val = loss.item()
