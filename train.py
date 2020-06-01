@@ -60,6 +60,7 @@ def train(args, dataset, encoder, generator, discriminator):
     pbar = tqdm(range(args.phase*30))
 
     perceptual_model = torchvision.models.vgg16(pretrained=True)
+    perceptual_model.cuda()
 
     requires_grad(generator, False)
     requires_grad(encoder, False)
