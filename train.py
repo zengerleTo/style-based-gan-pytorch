@@ -75,7 +75,7 @@ def train(args, dataset, encoder, generator, discriminator):
     used_sample = 0
     
     epoch = 0
-    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/perceptual/first run')
+    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/w-space-perceptual/first run')
 
     for i in pbar:
         discriminator.zero_grad()
@@ -308,7 +308,7 @@ if __name__ == '__main__':
 
     if args.gen_path != '':
         styled_generator.module.load_state_dict(torch.load(args.gen_path))
-        generator = next(styled_generator.children())
+        generator = next(next(styled_generator.children()).children())
     if args.discr_path != '':
         discriminator.module.load_state_dict(torch.load(args.discr_path)['discriminator'])
 
