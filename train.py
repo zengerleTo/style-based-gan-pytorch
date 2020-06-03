@@ -15,7 +15,7 @@ from torchvision import datasets, transforms, utils
 import torchvision
 
 from dataset import MultiResolutionDataset
-from model import StyledGenerator, Discriminator, PortraitEncoder
+from model import Generator, StyledGenerator, Discriminator, PortraitEncoder
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -131,8 +131,14 @@ def train(args, dataset, encoder, generator, discriminator):
             grad_penalty.backward()
             if i%10 == 0:
                 grad_loss_val = grad_penalty.item()
+        
+        noise = []
 
-        fake_image = generator(encoder(real_image), step=step, alpha=alpha)
+        for k in range(step + 1):
+            size = 4 * 2 ** k
+            noise.append(torch.randn(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+            
+        fake_image = generator([encoder(real_image)], noise=noise, step=step, alpha=alpha)
         fake_predict = discriminator(fake_image, step=step, alpha=alpha)
 
         if args.loss == 'wgan-gp':
@@ -171,8 +177,13 @@ def train(args, dataset, encoder, generator, discriminator):
             requires_grad(discriminator, False)
     
             latent_w = encoder(real_image)
-            
-            embedded_image = generator(latent_w, step=step, alpha=alpha)
+            noise = []
+
+            for k in range(step + 1):
+                size = 4 * 2 ** k
+                noise.append(torch.randn(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+                
+            embedded_image = generator([latent_w], noise=noise, step=step, alpha=alpha)
     
             predict = discriminator(embedded_image, step=step, alpha=alpha)
     
@@ -275,7 +286,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     encoder = nn.DataParallel(PortraitEncoder(size=128, filters=64, filters_max=512, num_layers=1)).cuda()
-    generator = nn.DataParallel(StyledGenerator(code_size)).cuda()
+    styled_generator = nn.DataParallel(StyledGenerator(code_size)).cuda()
+    generator = nn.DataParallel(Generator(code_size)).cuda()
     discriminator = nn.DataParallel(
         Discriminator(from_rgb_activate=not args.no_from_rgb_activate)
     ).cuda()
@@ -295,7 +307,8 @@ if __name__ == '__main__':
     d_optimizer = optim.Adam(discriminator.parameters(), lr=args.lr, betas=(0.0, 0.99))
 
     if args.gen_path != '':
-        generator.module.load_state_dict(torch.load(args.gen_path))
+        styled_generator.module.load_state_dict(torch.load(args.gen_path))
+        generator = next(styled_generator.children())
     if args.discr_path != '':
         discriminator.module.load_state_dict(torch.load(args.discr_path)['discriminator'])
 
