@@ -78,8 +78,8 @@ def train(args, dataset, encoder, generator, discriminator):
     writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/noiseless-no-perc/first run')
 
     #Generate an image embedding after no training for progress control
-    debug_image=loader[0:10]
-            
+    debug_image = [dataset[k].cuda() for k in range(args.batch.get(resolution, args.batch_default))]
+    debug_image = torch.stack(debug_image, dim=0)
     latent_w = encoder(debug_image)
     noise = []
 
@@ -91,16 +91,15 @@ def train(args, dataset, encoder, generator, discriminator):
     
     images = []
 
-    gen_i=10#, gen_j = args.gen_sample.get(resolution, (10, 5))
+    gen_i=args.batch.get(resolution, args.batch_default)#, gen_j = args.gen_sample.get(resolution, (10, 5))
     with torch.no_grad():
         for k in range(gen_i):
             images.append(debug_image[k].data.cpu())
             images.append(embedded_debug_image[k].data.cpu())
-
     utils.save_image(
-        torch.cat(images, 1),
+        images,
         f'/content/drive/My Drive/ADL4CV Data/debug_images/noiseless-no-perc/first run/epoch-{str(epoch)}.png',
-        nrow=gen_i,
+        nrow=2,
         normalize=True,
         range=(-1, 1),
     )
@@ -126,7 +125,8 @@ def train(args, dataset, encoder, generator, discriminator):
             adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
             
             #Save the same reconstructed image after each epoch for progress control
-            debug_image=loader[0:10]
+            debug_image = [dataset[k].cuda() for k in range(args.batch.get(resolution, args.batch_default))]
+            debug_image = torch.stack(debug_image, dim=0)
             
             latent_w = encoder(debug_image)
             noise = []
@@ -139,16 +139,16 @@ def train(args, dataset, encoder, generator, discriminator):
             
             images = []
 
-            gen_i=10#, gen_j = args.gen_sample.get(resolution, (10, 5))
+            gen_i=args.batch.get(resolution, args.batch_default)#, gen_j = args.gen_sample.get(resolution, (10, 5))
             with torch.no_grad():
                 for k in range(gen_i):
                     images.append(debug_image[k].data.cpu())
                     images.append(embedded_debug_image[k].data.cpu())
 
             utils.save_image(
-                torch.cat(images, 1),
+                images,
                 f'/content/drive/My Drive/ADL4CV Data/debug_images/noiseless-no-perc/first run/epoch-{str(epoch)}.png',
-                nrow=gen_i,
+                nrow=2,
                 normalize=True,
                 range=(-1, 1),
             )
@@ -280,9 +280,9 @@ def train(args, dataset, encoder, generator, discriminator):
                     images.append(embedded_image[k].data.cpu())
 
             utils.save_image(
-                torch.cat(images, 1),
+                images,
                 f'sample/{str(i + 1).zfill(6)}.png',
-                nrow=gen_i,
+                nrow=2,
                 normalize=True,
                 range=(-1, 1),
             )
