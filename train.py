@@ -42,7 +42,7 @@ def sample_data(dataset, batch_size, image_size=4):
 
 def adjust_lr(optimizer, lr):
     for group in optimizer.param_groups:
-        mult = 0.8#group.get('mult', 1)
+        mult = 0.95#group.get('mult', 1)
         group['lr'] = lr * mult
 
 
@@ -75,7 +75,35 @@ def train(args, dataset, encoder, generator, discriminator):
     used_sample = 0
     
     epoch = 0
-    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/w-space-perceptual/first run')
+    writer = SummaryWriter(log_dir='/content/drive/My Drive/ADL4CV Data/tensorboards/noiseless-no-perc/first run')
+
+    #Generate an image embedding after no training for progress control
+    debug_image=loader[0:10]
+            
+    latent_w = encoder(debug_image)
+    noise = []
+
+    for k in range(step + 1):
+        size = 4 * 2 ** k
+        noise.append(torch.zeros(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+        
+    embedded_debug_image = generator([latent_w], noise=noise, step=step, alpha=alpha)
+    
+    images = []
+
+    gen_i=10#, gen_j = args.gen_sample.get(resolution, (10, 5))
+    with torch.no_grad():
+        for k in range(gen_i):
+            images.append(debug_image[k].data.cpu())
+            images.append(embedded_debug_image[k].data.cpu())
+
+    utils.save_image(
+        torch.cat(images, 1),
+        f'/content/drive/My Drive/ADL4CV Data/debug_images/noiseless-no-perc/first run/epoch-{str(epoch)}.png',
+        nrow=gen_i,
+        normalize=True,
+        range=(-1, 1),
+    )
 
     for i in pbar:
         discriminator.zero_grad()
@@ -87,7 +115,6 @@ def train(args, dataset, encoder, generator, discriminator):
             torch.save(
                 {
                     'encoder': encoder.module.state_dict(),
-                    'generator': generator.module.state_dict(),
                     'discriminator': discriminator.module.state_dict(),
                     'e_optimizer': e_optimizer.state_dict(),
                     'd_optimizer': d_optimizer.state_dict()
@@ -97,6 +124,34 @@ def train(args, dataset, encoder, generator, discriminator):
 
             adjust_lr(e_optimizer, args.lr.get(resolution, 0.001))
             adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
+            
+            #Save the same reconstructed image after each epoch for progress control
+            debug_image=loader[0:10]
+            
+            latent_w = encoder(debug_image)
+            noise = []
+
+            for k in range(step + 1):
+                size = 4 * 2 ** k
+                noise.append(torch.zeros(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+                
+            embedded_debug_image = generator([latent_w], noise=noise, step=step, alpha=alpha)
+            
+            images = []
+
+            gen_i=10#, gen_j = args.gen_sample.get(resolution, (10, 5))
+            with torch.no_grad():
+                for k in range(gen_i):
+                    images.append(debug_image[k].data.cpu())
+                    images.append(embedded_debug_image[k].data.cpu())
+
+            utils.save_image(
+                torch.cat(images, 1),
+                f'/content/drive/My Drive/ADL4CV Data/debug_images/noiseless-no-perc/first run/epoch-{str(epoch)}.png',
+                nrow=gen_i,
+                normalize=True,
+                range=(-1, 1),
+            )
 
         try:
             real_image = next(data_loader)
@@ -131,12 +186,13 @@ def train(args, dataset, encoder, generator, discriminator):
             grad_penalty.backward()
             if i%10 == 0:
                 grad_loss_val = grad_penalty.item()
+                writer.add_scalar('Loss/grad_penalty', grad_penalty)
         
         noise = []
 
         for k in range(step + 1):
             size = 4 * 2 ** k
-            noise.append(torch.randn(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+            noise.append(torch.zeros(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
             
         fake_image = generator([encoder(real_image)], noise=noise, step=step, alpha=alpha)
         fake_predict = discriminator(fake_image, step=step, alpha=alpha)
@@ -167,6 +223,8 @@ def train(args, dataset, encoder, generator, discriminator):
             if i%10 == 0:
                 disc_loss_val = (real_predict + fake_predict).item()
                 writer.add_scalar('Loss/discriminator', real_predict + fake_predict)
+                writer.add_scalar('Loss/discriminator_real', real_predict)
+                writer.add_scalar('Loss/discriminator_fake', fake_predict)
 
         d_optimizer.step()
 
@@ -181,7 +239,7 @@ def train(args, dataset, encoder, generator, discriminator):
 
             for k in range(step + 1):
                 size = 4 * 2 ** k
-                noise.append(torch.randn(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
+                noise.append(torch.zeros(args.batch.get(resolution, args.batch_default), 1, size, size).cuda())
                 
             embedded_image = generator([latent_w], noise=noise, step=step, alpha=alpha)
     
@@ -202,6 +260,9 @@ def train(args, dataset, encoder, generator, discriminator):
             if i%10 == 0:
                 enc_loss_val = loss.item()
                 writer.add_scalar('Loss/encoder', loss)
+                writer.add_scalar('Loss/encoder_rec', pixel_rec_loss)
+                writer.add_scalar('Loss/encoder_perc', feature_rec_loss)
+                writer.add_scalar('Loss/encoder_adv', adv_loss)
     
             loss.backward()
             e_optimizer.step()
@@ -235,7 +296,6 @@ def train(args, dataset, encoder, generator, discriminator):
     torch.save(
                 {
                     'encoder': encoder.module.state_dict(),
-                    'generator': generator.module.state_dict(),
                     'discriminator': discriminator.module.state_dict(),
                     'e_optimizer': e_optimizer.state_dict(),
                     'd_optimizer': d_optimizer.state_dict(),
@@ -254,7 +314,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--phase',
         type=int,
-        default=1_750,
+        default=2188,
         help='number of samples used for each training phases',
     )
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
